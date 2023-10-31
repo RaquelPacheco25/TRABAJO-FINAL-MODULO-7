@@ -1,0 +1,283 @@
+---
+title: "TRABAJO FINAL MÓDULO 7"
+author: "Raquel Pacheco"
+date: "2023-10-31"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 5
+    toc_float: 
+      collapsed: false
+      smooth_scroll: true
+---
+
+## **SECCION A**
+Ve a la página del Banco Central de tu país y obtén cualquier variable de tu interés con frecuencia mensual o trimestral, mínimo 60 datos.
+
+Realiza gráficos necesarios para comprender el comportamiento de la variable en estudio. Comenta en un par de párrafos lo que consideres.
+
+Realiza los contrastes de raíz unitaria aprendidos. Reporta los resultados realiza los respectivos comentarios
+
+VARIABLE UTILIZADA: CREDITO PANORAMA FINANCIERO
+
+La variable "CREDITO PANORAMA FINANCIERO" es una métrica que se utiliza en el contexto financiero y económico para hacer un seguimiento de los créditos otorgados por el sector financiero de un país. Esta variable se relaciona con la cantidad de dinero prestado por instituciones financieras como bancos, cooperativas de crédito, y otras entidades financieras a individuos, empresas y otros prestatarios.
+
+Cuando se trabaja con esta variable en el contexto de un análisis de series temporales, lo que se está haciendo es examinar cómo ha evolucionado el crédito otorgado a lo largo del tiempo. Esto implica recopilar datos históricos sobre el crédito concedido y observar cómo ha variado en diferentes períodos. Esta información es valiosa para comprender la dinámica económica de un país, ya que el crédito es un componente importante de la actividad económica y puede influir en variables como el consumo, la inversión y el crecimiento económico.
+
+### Carga de las librerias
+```{r librerias, message=FALSE, warning=FALSE, comment="", echo=TRUE}
+library(foreign)
+library(urca)
+library(openxlsx)
+library(highcharter)
+library(forecast)
+```
+
+### Carga y manipulacion de la base de datos 
+
+```{r basededatos, message=TRUE, warning=FALSE, comment="", echo=TRUE}
+data<-read.xlsx("C:\\Users\\CompuStore\\Desktop\\CURSOS\\CIENCIA DE DATOS\\MODULO 7\\TRABAJO FINAL MODULO 7\\BASE TRABAJO FINAL.xlsx")
+```
+
+### Grafico de la variable 
+
+```{r grafico, message=TRUE, warning=FALSE, comment="", echo=TRUE}
+tsdata <- ts(as.vector(as.matrix(data)),
+             start=c(2017,1),
+             end=c(2021,7),
+             frequency = 12)
+ts.plot(tsdata)
+```
+
+Al observar estos datos, es evidente que la serie de tiempo muestra una tendencia ascendente constante lo que significa que la variable (en este caso, el "Crédito Panorama Financiero") está aumentando con el tiempo. Esto podría indicar un crecimiento constante o progresivo en la variable a lo largo del período analizado.
+
+Tener una tendencia ascendente constante en una serie de tiempo puede ser una señal positiva desde el punto de vista financiero o económico, ya que sugiere un aumento en la métrica que se está observando. Sin embargo, es importante considerar otros factores y realizar un análisis más detallado para comprender completamente lo que implica este aumento. Por ejemplo, es importante evaluar si hay estacionalidad, ciclos u otros patrones que también puedan influir en los datos.
+
+###  Contrastes de raíz unitaria
+
+```{r raiz, message=TRUE, warning=FALSE, comment="", echo=TRUE}
+
+## Contraste Aumented Dickey Fuller 
+
+adftes<-ur.df(tsdata, type=c("trend"), 
+              selectlags=c("BIC"))
+summary(adftes)
+
+## 4 ES > A 4, 3, 3? SI por lo tanto RH0
+
+#REGLA 
+
+# si el valor calculado es > al valor critico RH0
+# H0: Raiz unitaria
+# Ha: Raiz no unitaria 
+
+# En este caso raiz unitaria= no estacionariedad 
+# Usted desea que no sea estacionaria es decir que no sea raiz unitaria 
+
+## Contraste Phillip y perron
+
+pptes<- ur.pp(tsdata, type=c("Z-tau"),
+              model=c("trend"),
+              lags = c("short"))
+summary(pptes)
+
+## 5 ES > A 4, 3, 3? SI por lo tanto se RH0
+
+#REGLA 
+
+# si el valor calculado es > al valor critico RH0
+# H0: Raiz unitaria
+# Ha: Raiz no unitaria 
+
+# En este caso raiz unitaria= no estacionariedad 
+
+### Contraste KPSS
+
+kpsstes<-ur.kpss(tsdata, type = c("tau"),
+                 lag=c("short"))
+summary(kpsstes)
+
+
+## 0.0849 ES > A 0.119 no por lo tanto no RH0
+
+#REGLA 
+
+# si el valor calculado es > al valor critico RH0
+# H0: Estacionariedad
+# Ha: No estacionariedad
+
+## Contraste Elliot, Rothenberg & Stock Unit Root Test
+## Contraste de alta potencia (menos sensible a valores atipicos)
+
+erstest<-ur.ers(tsdata, type = c("DF-GLS"),
+                model = c("trend"), 
+                lag.max = 4)
+summary(erstest)
+
+# -2.7134 es > a 3,3,2? no por lo tanto no RH0
+
+# si el valor calculado es > al valor critico RH0
+# H0: Raiz unitaria
+# Ha: Raiz no unitaria 
+
+# En este caso raiz unitaria= no estacionariedad 
+```
+
+Según el criterio de decisión simplificado que establece que si el valor calculado es mayor que el valor crítico se rechaza la hipótesis nula (H0), las pruebas ADF, PP y ERS sugieren que la serie de tiempo no tiene una raíz unitaria y es estacionaria, mientras que la prueba KPSS sugiere que la serie es estacionaria alrededor de una tendencia. Por lo tanto, la serie de tiempo es considerada estacionaria en este contexto.
+
+## **SECCION B**
+
+Realiza el análisis de la función de autocorrelación de la variable (original o transformada, según lo que indique las pruebas) y obtén el posible mejor modelo. 
+
+Considera analizar si la serie tiene algún comportamiento estacional para que sea considerado en este literal.
+
+Siendo el mejor modelo (ARIMA o SARIMA según sea el caso), valida los resultados
+
+Construye 4 pronósticos fuera de la muestra.
+
+Con la misma variable, corre un auto.arima y realiza 4 pronósticos fuera de la muestra, con sus intervalos de confianza
+
+En un gráfico de lineas, coloca la variable original, los valores ajustados del modelo final y los valores ajustados del modelo automático. Comenta los resultados.
+
+### Complemento para ver de cuanto se necesita para convertir en estacionaria 
+
+```{r compl, message=TRUE, warning=FALSE, comment="", echo=TRUE}
+
+ndiffs(tsdata, test = c("kpss"))
+
+ndiffs(tsdata, test = c("adf"))
+
+ndiffs(tsdata, test = c("pp"))
+
+```
+Es necesaerio diferenciar la serie a 1 de tal manera que se convierta en una serie estacionaria aunque claramente ya lo es.
+
+## Primeras diferencias 
+
+```{r dife, message=TRUE, warning=FALSE, comment="", echo=TRUE}
+plot(tsdata)
+plot(diff(tsdata,1))
+
+## ¿que tipo de modelo arima es? Identificar 
+
+acf(diff(tsdata,1), xlim=c(0.2,4))
+pacf(diff(tsdata,1))
+
+
+```
+
+Aqui vemos que pondemos usar una media movil de orden 1, 6 y 11 y un autorregresivo de orden 1, 6 y 12.
+Sin embargo despues de hacer todas las combinaciones posibles, el mejor modelo para hacer es solo con una media movil de orden 1.
+
+## CONSTRUCCION DEL MODELO 
+
+```{r modelo, message=TRUE, warning=FALSE, comment="", echo=TRUE}
+## forma compacta
+# Arima (p,d,q)
+
+modelo1 <- Arima(tsdata, order = c(0, 1, 1))
+modelo1
+#Ho: coeficiente=0
+# Ha: coeficiente!0
+
+# Si no se rechaza la Ho significa que el coeficiente no ayuda a replicar la serie original 
+# Se busca RHO
+
+# Prueba t
+0.9573/0.0511
+
+# Regla 
+# Si tiene mas de 36 datos 
+# Si el t calculado es >2 RH0 ## 18.73386 es >2 ?  SI por lo tanto RH0 y 
+
+
+```
+El coficiente SI aporta areplicar la serie.
+
+## Evaluando el Modelo
+
+```{r modeloev, message=TRUE, warning=FALSE, comment="", echo=TRUE}
+accuracy(modelo1)
+
+### El MAPE nos dice que el error de pronostico va a hacer de 2.01 es decir el 
+
+
+### Evaluar los residuos
+
+plot(modelo1$residuals)
+abline(h=0)
+
+# Los residuos estan centrados, presenta de una o dos tendencia, se comportan de manera aleatoria=ruido blanco
+# se espera que el modelo utilizado sea un buen modelo pero como la vista es subjetiva
+
+
+Box.test(modelo1$residuals, lag=1, type = "Ljung-Box")
+
+# Ho: residuos independientes
+# Ha: residuos dependientes
+
+# si pvalor es <0.05 RH0
+#No RHO
+
+par(mfrow=c(1,2))
+Acf(modelo1$residuals)
+Pacf(modelo1$residuals)
+```
+
+### Pronostico
+
+```{r pronos, message=TRUE, warning=FALSE, comment="", echo=TRUE}
+accuracy(modelo1)
+
+f1<-forecast(modelo1, h=4, level=c(95))
+plot(f1)
+
+f1
+
+hchart(f1)
+```
+
+### MODELO AUTOARIMA
+
+```{r arima, message=TRUE, warning=FALSE, comment="", echo=TRUE}
+
+modelo1<-auto.arima(tsdata)
+accuracy(modelo1)
+plot(modelo1)
+
+Box.test(modelo1$residuals, type = c("Ljung-Box"))
+
+# Ho: residuos independientes
+# No RHo
+
+Acf(modelo1$residuals)
+Pacf(modelo1$residuals)
+```
+
+### Proyeccion arima
+
+```{r arimapr, message=TRUE, warning=FALSE, comment="", echo=TRUE}
+
+
+f1 <- forecast(modelo1,h=4,level=c(95))
+f1
+hchart(f1)
+```
+
+### COMPARAR CUAL ES LA SERIE ORIGINAL VS LA SERIE EN ESTUDIO
+
+```{r comp, message=TRUE, warning=FALSE, comment="", echo=TRUE}
+
+ts.plot(tsdata, f1$fitted,f1$mean,
+        col=c("red", "blue","green"),
+        main="Proyeccion del Credito Panorama Financiero")
+
+```
+
+Se realizaron varias pruebas de estacionariedad en los datos de la serie de tiempo. Las pruebas ADF y PP sugieren que la serie es estacionaria, lo que implica que no hay una tendencia clara a lo largo del tiempo. Por otro lado, la prueba KPSS no rechazó la hipótesis nula de estacionariedad en torno a una tendencia determinista. La prueba ERS no rechazó la hipótesis nula de raíz unitaria, lo que podría deberse a la sensibilidad de esta prueba.
+
+Se ajustó un modelo ARIMA(0,1,1) a los datos, lo que indica que se utiliza un promedio móvil de orden 1 para modelar la componente estacional. El coeficiente MA(1) es 0.9573 y es altamente significativo.
+
+En general, las pruebas y el modelo sugieren que la serie de tiempo es estacionaria y se puede modelar adecuadamente utilizando un modelo ARIMA con un promedio móvil de orden 1. Esto significa que no hay una tendencia clara en los datos a lo largo del tiempo.
+
+Vemos que la proyeccion que se realizo con el modelo arima de forma automatica refleja mejor los posibles valores que pueden darse en los 4 meses posteriores.
